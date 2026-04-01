@@ -3,7 +3,12 @@ import { motion } from 'framer-motion'
 import { FaBoxOpen, FaBullhorn, FaCircleUser, FaGlobe, FaMobileScreenButton, FaPalette } from 'react-icons/fa6'
 import { HiOutlineArrowNarrowRight } from 'react-icons/hi'
 import { SERVICES } from '../data/services.js'
-import { SERVICE_THEMES, SERVICE_WATERMARKS, servicePanelProps } from '../data/serviceThemes.js'
+import {
+  SERVICE_THEMES,
+  SERVICE_WATERMARKS,
+  SERVICE_COLLAPSED_IMAGES,
+  servicePanelProps,
+} from '../data/serviceThemes.js'
 
 /** Landing column order (must match product flow: logo → packaging → ads → YouTube → website → app) */
 const LANDING_SERVICE_ORDER = [
@@ -61,6 +66,7 @@ export function ServicesLanding({ onSelectService }) {
             const n = String(i + 1).padStart(2, '0')
             const watermarkLabel = SERVICE_WATERMARKS[s.id] ?? 'PIX'
             const wmLong = watermarkLabel.length > 4
+            const collapsedImg = SERVICE_COLLAPSED_IMAGES[s.id]
 
             return (
               <motion.div
@@ -79,19 +85,39 @@ export function ServicesLanding({ onSelectService }) {
                 <div className="services-acc-panel-inner">
                   {!isActive ? (
                     <motion.div
-                      className="services-acc-collapsed"
+                      className={`services-acc-collapsed${collapsedImg ? ' services-acc-collapsed--photo' : ''}`}
                       initial={false}
                       animate={{ opacity: 1 }}
                       transition={{ duration: 0.2 }}
                     >
-                      <span className="services-acc-num" style={{ color: theme.indexColor }}>
-                        {n}
-                      </span>
-                      <span className="services-acc-title-collapsed">{s.name}</span>
-                      <span className="services-acc-tag-collapsed">{s.tagline}</span>
-                      <span className="services-acc-chev" aria-hidden>
-                        →
-                      </span>
+                      {collapsedImg ? (
+                        <img
+                          className="services-acc-collapsed-bg"
+                          src={collapsedImg}
+                          alt=""
+                          loading="lazy"
+                          decoding="async"
+                        />
+                      ) : null}
+                      {collapsedImg ? <div className="services-acc-collapsed-top-overlay" aria-hidden /> : null}
+                      <div className="services-acc-collapsed-content">
+                        <span className="services-acc-num">{n}</span>
+                        <span className="services-acc-title-collapsed">{s.name}</span>
+                        <span className="services-acc-tag-collapsed">{s.tagline}</span>
+                      </div>
+                      <div className="services-acc-collapsed-bottom">
+                        <button
+                          type="button"
+                          className="services-acc-collapsed-btn"
+                          onClick={(e) => {
+                            e.stopPropagation()
+                            onSelectService(s.id)
+                          }}
+                        >
+                          View more
+                          <HiOutlineArrowNarrowRight aria-hidden className="services-acc-collapsed-btn-ico" />
+                        </button>
+                      </div>
                     </motion.div>
                   ) : (
                     <motion.div

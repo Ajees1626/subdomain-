@@ -43,6 +43,21 @@ export const SERVICE_WATERMARKS = {
   app: 'APP',
 }
 
+/** File names in `public/images/` — spaces encoded for URLs */
+const img = (file) => `/images/${encodeURIComponent(file)}`
+
+/**
+ * Collapsed accordion — photos from `public/images/`.
+ */
+export const SERVICE_COLLAPSED_IMAGES = {
+  'brand-creative': img('brand and creative_result.webp'),
+  packaging: img('packaging design_result.webp'),
+  'digital-marketing': img('digital markeing_result.webp'),
+  'personal-branding': img('personal braning_result.webp'),
+  website: img('website development_result.webp'),
+  app: img('app development_result.webp'),
+}
+
 /** Spread onto `dm-panel` roots so inner cards pick up themed gradients via CSS */
 export function servicePanelProps(serviceId) {
   const t = SERVICE_THEMES[serviceId]
