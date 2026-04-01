@@ -5,6 +5,18 @@ import { HiOutlineArrowNarrowRight } from 'react-icons/hi'
 import { SERVICES } from '../data/services.js'
 import { SERVICE_THEMES, SERVICE_WATERMARKS, servicePanelProps } from '../data/serviceThemes.js'
 
+/** Landing column order (must match product flow: logo → packaging → ads → YouTube → website → app) */
+const LANDING_SERVICE_ORDER = [
+  'brand-creative',
+  'packaging',
+  'digital-marketing',
+  'personal-branding',
+  'website',
+  'app',
+]
+
+const LANDING_SERVICES = LANDING_SERVICE_ORDER.map((id) => SERVICES.find((s) => s.id === id)).filter(Boolean)
+
 const ICONS = {
   'brand-creative': FaPalette,
   packaging: FaBoxOpen,
@@ -28,7 +40,7 @@ const footerMotion = {
 export function ServicesLanding({ onSelectService }) {
   const [activeIndex, setActiveIndex] = useState(0)
 
-  const activeService = SERVICES[activeIndex] ?? SERVICES[0]
+  const activeService = LANDING_SERVICES[activeIndex] ?? LANDING_SERVICES[0]
 
   return (
     <div className="services-landing" {...servicePanelProps(activeService.id)}>
@@ -42,12 +54,13 @@ export function ServicesLanding({ onSelectService }) {
 
       <div className="services-acc-wrap">
         <div className="services-acc" role="list">
-          {SERVICES.map((s, i) => {
+          {LANDING_SERVICES.map((s, i) => {
             const Icon = ICONS[s.id]
             const theme = SERVICE_THEMES[s.id]
             const isActive = activeIndex === i
             const n = String(i + 1).padStart(2, '0')
             const watermarkLabel = SERVICE_WATERMARKS[s.id] ?? 'PIX'
+            const wmLong = watermarkLabel.length > 4
 
             return (
               <motion.div
@@ -63,18 +76,6 @@ export function ServicesLanding({ onSelectService }) {
                 transition={spring}
                 onClick={() => setActiveIndex(i)}
               >
-                {isActive ? (
-                  <motion.span
-                    className="services-acc-watermark"
-                    aria-hidden
-                    initial={{ opacity: 0, scale: 0.92 }}
-                    animate={{ opacity: 0.15, scale: 1 }}
-                    transition={{ duration: 0.45, ease: [0.22, 1, 0.36, 1] }}
-                  >
-                    {watermarkLabel}
-                  </motion.span>
-                ) : null}
-
                 <div className="services-acc-panel-inner">
                   {!isActive ? (
                     <motion.div
@@ -107,6 +108,15 @@ export function ServicesLanding({ onSelectService }) {
                       >
                         {Icon ? <Icon className="services-acc-icon" /> : null}
                       </motion.div>
+                      <motion.span
+                        className={`services-acc-watermark${wmLong ? ' services-acc-watermark--long' : ''}`}
+                        aria-hidden
+                        initial={{ opacity: 0, y: 6 }}
+                        animate={{ opacity: 0.2, y: 0 }}
+                        transition={{ duration: 0.4, ease: [0.22, 1, 0.36, 1], delay: 0.12 }}
+                      >
+                        {watermarkLabel}
+                      </motion.span>
                       <motion.div className="services-acc-expanded-footer" {...footerMotion}>
                         <h2 className="services-acc-expanded-title">{s.name}</h2>
                         <p className="services-acc-expanded-desc">{s.tagline}</p>

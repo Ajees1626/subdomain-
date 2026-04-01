@@ -1,5 +1,6 @@
 /**
  * Pixdot — 6 services. Each maps to a full panel in App.jsx.
+ * Order matches the landing accordion: Brand → Packaging → Ads → YouTube → Website → App.
  */
 export const SERVICES = [
   {
@@ -17,13 +18,13 @@ export const SERVICES = [
   {
     id: 'digital-marketing',
     name: 'Digital Marketing',
-    tagline: 'Plans, page handling & custom',
+    tagline: 'Ads, plans, page handling & custom',
     options: [{ id: 'plans', label: 'Plans & booking' }],
   },
   {
     id: 'personal-branding',
     name: 'Personal Branding',
-    tagline: 'Reels & posters',
+    tagline: 'YouTube, reels & posters',
     options: [{ id: 'plans', label: 'Plans & booking' }],
   },
   {

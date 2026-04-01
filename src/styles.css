@@ -208,6 +208,16 @@ body {
   color: var(--ink-muted);
 }
 
+@media (max-width: 767px) {
+  .services-landing-title {
+    font-size: clamp(1.28rem, 5.5vw, 1.75rem);
+  }
+
+  .services-landing-lead {
+    font-size: clamp(0.82rem, 3.4vw, 0.94rem);
+  }
+}
+
 /* —— Horizontal expanding accordion (no horizontal scroll — fits viewport) —— */
 .services-acc-wrap {
   margin-top: 1.35rem;
@@ -265,31 +275,42 @@ body {
   }
 }
 
-/* Short fixed labels — nowrap + capped size keeps full word visible (no “BRA…” clip) */
+/* Background word — sits below the icon, full-width centered (not behind the icon) */
 .services-acc-watermark {
-  position: absolute;
-  left: 50%;
-  top: 38%;
-  transform: translate(-50%, -50%);
-  width: max-content;
-  max-width: calc(100% - 1.5rem);
-  padding: 0 0.75rem;
+  display: block;
+  position: relative;
+  flex-shrink: 0;
+  width: 100%;
+  max-width: 100%;
+  margin: 0.2rem 0 0.15rem;
+  padding: 0 0.35rem;
   box-sizing: border-box;
-  font-size: clamp(1.1rem, 12cqi, 2.65rem);
+  font-size: clamp(0.75rem, 9cqi, 2.35rem);
   font-weight: 900;
-  letter-spacing: 0.02em;
-  line-height: 1;
+  letter-spacing: 0.06em;
+  line-height: 1.05;
   text-align: center;
   white-space: nowrap;
-  color: var(--white);
+  text-transform: uppercase;
+  color: color-mix(in srgb, var(--white) 100%, transparent);
+  text-shadow: 0 2px 20px color-mix(in srgb, var(--ink) 12%, transparent);
   pointer-events: none;
-  z-index: 0;
+  user-select: none;
+}
+
+/* PACKAGING, YOUTUBE, WEBSITE — slightly smaller so one line fits */
+.services-acc-watermark--long {
+  font-size: clamp(0.55rem, 7.5cqi, 1.85rem);
+  letter-spacing: 0.04em;
 }
 
 @supports not (container-type: inline-size) {
   .services-acc-watermark {
-    font-size: clamp(1.1rem, 4.2vw, 2.5rem);
-    max-width: calc(100% - 1.25rem);
+    font-size: clamp(0.75rem, 3.6vw, 2.2rem);
+  }
+
+  .services-acc-watermark--long {
+    font-size: clamp(0.55rem, 2.9vw, 1.75rem);
   }
 }
 
@@ -358,8 +379,8 @@ body {
 .services-acc-expanded {
   display: flex;
   flex-direction: column;
-  align-items: center;
-  justify-content: space-between;
+  align-items: stretch;
+  justify-content: flex-start;
   flex: 1;
   min-height: 0;
   padding: 0.35rem 0.5rem 0.5rem;
@@ -368,6 +389,8 @@ body {
 .services-acc-icon-ring {
   display: grid;
   place-items: center;
+  align-self: center;
+  flex-shrink: 0;
   margin-top: 0.5rem;
   width: min(8.5rem, 42vw);
   height: min(8.5rem, 42vw);
@@ -410,29 +433,41 @@ body {
 .services-acc-btn {
   display: inline-flex;
   align-items: center;
+  justify-content: center;
   gap: 0.4rem;
   padding: 0.5rem 1rem;
   border-radius: var(--radius-pill);
   font: inherit;
   font-size: 0.78rem;
   font-weight: 700;
+  text-align: center;
   cursor: pointer;
   border: 1px solid color-mix(in srgb, var(--palette-lilac-4) 35%, var(--ink));
   background: color-mix(in srgb, var(--white) 88%, var(--palette-lilac-1));
   color: var(--grad-ink-on-pastel);
   transition: var(--transition-ui);
+  -webkit-tap-highlight-color: transparent;
 }
 
+.services-acc-btn:focus-visible {
+  outline: 2px solid color-mix(in srgb, var(--palette-lilac-4) 65%, var(--white));
+  outline-offset: 2px;
+}
+
+/* Solid light pill on gradient — dark text stays readable (not white-on-white) */
 .services-acc-btn--on-gradient {
-  border-color: color-mix(in srgb, var(--white) 65%, transparent);
-  color: var(--white);
+  border-color: color-mix(in srgb, var(--white) 55%, var(--palette-lilac-4));
+  background: color-mix(in srgb, var(--white) 94%, transparent);
+  color: var(--grad-ink-on-pastel);
+  box-shadow: 0 4px 16px color-mix(in srgb, #000 12%, transparent);
 }
 
 @media (hover: hover) {
   .services-acc-btn--on-gradient:hover {
-    background: color-mix(in srgb, var(--white) 22%, transparent);
-    border-color: var(--white);
-    box-shadow: 0 4px 18px color-mix(in srgb, #000 12%, transparent);
+    background: var(--white);
+    border-color: color-mix(in srgb, var(--white) 75%, var(--palette-lilac-4));
+    color: var(--grad-ink-on-pastel);
+    box-shadow: 0 6px 20px color-mix(in srgb, #000 14%, transparent);
   }
 }
 
@@ -539,9 +574,13 @@ body {
   }
 
   .services-acc-watermark {
-    font-size: clamp(1.5rem, 10vw, 2.75rem);
-    top: 36%;
-    max-width: calc(100% - 1rem);
+    margin: 0.15rem 0 0.1rem;
+    font-size: clamp(1.1rem, 8.5vw, 2.6rem);
+  }
+
+  .services-acc-watermark--long {
+    font-size: clamp(0.72rem, 5.5vw, 2.1rem);
+    letter-spacing: 0.03em;
   }
 
   .services-acc-icon-ring {
@@ -560,29 +599,57 @@ body {
   }
 }
 
-.sidebar-all-services {
-  display: block;
-  margin: 0.65rem 0 0;
-  padding: 0;
-  border: none;
-  background: none;
+/* “All services” — top of main content on tablet/desktop; mobile uses .mobile-back-services */
+.detail-all-services-wrap {
+  display: none;
+  margin: 0 0 0.85rem;
+}
+
+@media (min-width: 768px) {
+  .detail-all-services-wrap {
+    display: block;
+  }
+}
+
+.detail-all-services {
+  display: inline-flex;
+  align-items: center;
+  gap: 0.25rem;
+  padding: 0.45rem 0.65rem;
+  margin: 0;
+  border: 1px solid color-mix(in srgb, var(--brand) 28%, var(--border));
+  border-radius: var(--radius-pill);
+  background: linear-gradient(165deg, var(--white) 0%, var(--surface-98) 100%);
   font: inherit;
-  font-size: 0.78rem;
+  font-size: 0.8rem;
   font-weight: 700;
   color: var(--brand);
   cursor: pointer;
   text-align: left;
-  text-decoration: underline;
-  text-underline-offset: 3px;
+  text-decoration: none;
+  box-shadow: var(--shadow-xs);
+  transition: border-color 0.2s ease, box-shadow 0.2s ease, transform 0.1s ease;
+  -webkit-tap-highlight-color: transparent;
+}
+
+.detail-all-services:focus-visible {
+  outline: 2px solid color-mix(in srgb, var(--brand) 45%, transparent);
+  outline-offset: 2px;
 }
 
 @media (hover: hover) {
-  .sidebar-all-services:hover {
-    color: var(--brand-deep);
+  .detail-all-services:hover {
+    border-color: color-mix(in srgb, var(--brand) 42%, var(--border));
+    box-shadow: var(--shadow-sm);
   }
 }
 
-.sidebar-all-services:active {
+.shell[data-service] .detail-all-services {
+  color: color-mix(in srgb, var(--svc-index) 35%, var(--brand));
+  border-color: color-mix(in srgb, var(--svc-index) 22%, var(--border));
+}
+
+.detail-all-services:active {
   transform: scale(0.98);
 }
 
@@ -887,6 +954,87 @@ body {
   margin-inline: auto;
 }
 
+/* Brand & Creative — 2-col cards + fixed total bar (always visible) */
+.dm-panel--bc-pick {
+  max-width: 64rem;
+  padding-bottom: 0;
+}
+
+.bc-pick-main {
+  padding-bottom: calc(6.5rem + env(safe-area-inset-bottom, 0px));
+}
+
+.bc-grid {
+  display: grid;
+  grid-template-columns: 1fr;
+  gap: clamp(0.85rem, 2vw, 1.15rem);
+  align-items: stretch;
+}
+
+@media (min-width: 640px) {
+  .bc-grid {
+    grid-template-columns: repeat(2, minmax(0, 1fr));
+  }
+}
+
+.bc-grid .bc-box {
+  margin-bottom: 0;
+}
+
+.bc-pick-bar {
+  position: fixed;
+  z-index: 30;
+  bottom: 0;
+  left: 0;
+  right: 0;
+  padding: 0.6rem clamp(1.1rem, 4vw, 3rem);
+  padding-bottom: max(0.6rem, env(safe-area-inset-bottom, 0px));
+  background: linear-gradient(180deg, color-mix(in srgb, var(--white) 70%, transparent) 0%, var(--white) 45%);
+  backdrop-filter: blur(12px);
+  -webkit-backdrop-filter: blur(12px);
+  border-top: 1px solid var(--border);
+  box-shadow: 0 -12px 36px color-mix(in oklch, var(--ink) 10%, transparent);
+}
+
+.bc-pick-bar-inner {
+  max-width: 56rem;
+  margin-inline: auto;
+  gap: 0.85rem !important;
+}
+
+@media (max-width: 767px) {
+  .bc-pick-bar-inner.dm-custom-footer {
+    flex-direction: column;
+    align-items: stretch;
+  }
+
+  .bc-pick-bar-inner .dm-btn {
+    width: 100%;
+    justify-content: center;
+  }
+
+  .bc-pick-bar-inner .dm-total {
+    justify-content: space-between;
+    width: 100%;
+  }
+}
+
+@media (min-width: 768px) {
+  .bc-pick-bar {
+    left: var(--sidebar-w);
+  }
+}
+
+.shell[data-service] .bc-pick-bar {
+  background: linear-gradient(
+    180deg,
+    color-mix(in srgb, var(--white) 65%, transparent) 0%,
+    color-mix(in srgb, var(--white) 88%, var(--svc-index) 12%) 100%
+  );
+  border-top-color: color-mix(in srgb, var(--svc-index) 22%, var(--border));
+  box-shadow: 0 -12px 36px color-mix(in srgb, var(--svc-index) 14%, transparent);
+}
+
 .dm-head {
   margin-bottom: 1.45rem;
 }
@@ -955,6 +1103,19 @@ body {
 .dm-card:active {
   transform: translateY(-1px);
   transition-duration: 0.06s;
+}
+
+button.dm-card {
+  -webkit-tap-highlight-color: transparent;
+}
+
+button.dm-card:focus-visible {
+  outline: 2px solid color-mix(in srgb, var(--palette-lilac-4) 50%, var(--brand));
+  outline-offset: 3px;
+}
+
+[data-service] button.dm-card:focus-visible {
+  outline-color: color-mix(in srgb, var(--svc-index) 45%, var(--palette-lilac-4));
 }
 
 .dm-card--selected {
@@ -1032,6 +1193,7 @@ body {
 
 .bc-box {
   margin-bottom: 1.25rem;
+  min-width: 0;
   padding: clamp(1.05rem, 3vw, 1.35rem);
   border-radius: var(--radius-lg);
   border: 1px solid color-mix(in srgb, var(--palette-mint-2) 22%, var(--border));
@@ -1115,6 +1277,9 @@ body {
 }
 
 .bc-tier-btns button {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
   padding: 0.48rem 0.7rem;
   min-height: 40px;
   border-radius: var(--radius);
@@ -1125,7 +1290,14 @@ body {
   cursor: pointer;
   color: var(--ink-muted);
   font-weight: 600;
+  text-align: center;
   transition: var(--transition-ui);
+  -webkit-tap-highlight-color: transparent;
+}
+
+.bc-tier-btns button:focus-visible {
+  outline: 2px solid color-mix(in srgb, var(--palette-lilac-4) 50%, var(--ink));
+  outline-offset: 1px;
 }
 
 @media (hover: hover) {
@@ -1213,6 +1385,9 @@ body {
 }
 
 .dm-toggle button {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
   padding: 0.55rem 1rem;
   min-height: 44px;
   flex: 1 1 auto;
@@ -1222,9 +1397,17 @@ body {
   font: inherit;
   font-size: clamp(0.74rem, 2vw, 0.82rem);
   font-weight: 700;
+  text-align: center;
   color: var(--ink-muted);
   cursor: pointer;
   transition: var(--transition-ui);
+  -webkit-tap-highlight-color: transparent;
+}
+
+.dm-toggle button:focus-visible {
+  outline: 2px solid color-mix(in srgb, var(--palette-lilac-4) 55%, var(--ink));
+  outline-offset: 1px;
+  z-index: 1;
 }
 
 .dm-toggle button:active {
@@ -1400,6 +1583,11 @@ body {
 }
 
 .dm-btn {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  gap: 0.35rem;
+  box-sizing: border-box;
   padding: 0.68rem 1.25rem;
   min-height: 46px;
   border-radius: var(--radius-pill);
@@ -1409,9 +1597,11 @@ body {
   font-size: 0.88rem;
   font-weight: 700;
   letter-spacing: -0.01em;
+  text-align: center;
   color: var(--ink);
   cursor: pointer;
   transition: var(--transition-ui);
+  -webkit-tap-highlight-color: transparent;
 }
 
 /* Secondary/outline — subtle pastel wash on hover */
@@ -1487,11 +1677,27 @@ body {
   cursor: not-allowed;
 }
 
+.dm-btn:focus-visible {
+  outline: 2px solid color-mix(in srgb, var(--palette-lilac-4) 65%, var(--ink));
+  outline-offset: 2px;
+}
+
+.dm-btn:focus:not(:focus-visible) {
+  outline: none;
+}
+
+[data-service] .dm-btn:focus-visible {
+  outline-color: color-mix(in srgb, var(--svc-index) 50%, var(--palette-lilac-4));
+}
+
 .dm-panel--form .dm-title {
   margin-top: 0.55rem;
 }
 
 .dm-back {
+  display: inline-flex;
+  align-items: center;
+  gap: 0.25rem;
   border: none;
   background: none;
   padding: 0.4rem 0;
@@ -1502,6 +1708,17 @@ body {
   color: var(--brand);
   cursor: pointer;
   margin-bottom: 0.45rem;
+  border-radius: var(--radius-md);
+  -webkit-tap-highlight-color: transparent;
+}
+
+.dm-back:focus-visible {
+  outline: 2px solid color-mix(in srgb, var(--brand) 45%, transparent);
+  outline-offset: 2px;
+}
+
+.shell[data-service] .dm-back {
+  color: color-mix(in srgb, var(--svc-index) 40%, var(--brand));
 }
 
 .dm-form-grid {
@@ -1835,6 +2052,16 @@ body {
 
   .dm-custom-footer .dm-btn--primary {
     width: 100%;
+  }
+
+  .dm-custom-footer .dm-btn:not(.dm-btn--primary) {
+    width: 100%;
+    justify-content: center;
+  }
+
+  .dm-actions:not(.dm-actions--split) .dm-btn {
+    width: 100%;
+    justify-content: center;
   }
 
   .dm-actions--split {

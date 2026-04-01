@@ -142,9 +142,6 @@ export default function App() {
         <div className="sidebar-brand">
           <p className="sidebar-kicker">Pixdot</p>
           <h1 className="sidebar-title">Services</h1>
-          <button type="button" className="sidebar-all-services" onClick={goToAllServices}>
-            ← All services
-          </button>
         </div>
 
         <nav className="sidebar-block">
@@ -185,7 +182,14 @@ export default function App() {
 
       <main className="detail" aria-label="Details">
         {Panel ? (
-          <Panel />
+          <>
+            <div className="detail-all-services-wrap">
+              <button type="button" className="detail-all-services" onClick={goToAllServices}>
+                ← All services
+              </button>
+            </div>
+            <Panel />
+          </>
         ) : (
           <>
             <header className="detail-header">

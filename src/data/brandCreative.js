@@ -1,5 +1,25 @@
 /** Brand & Creative — line items (₹) */
 
+import { DM_CUSTOM_KEYS } from './digitalMarketing.js'
+
+const dmCreative = DM_CUSTOM_KEYS.find((r) => r.key === 'creative')
+const dmAdCreative = DM_CUSTOM_KEYS.find((r) => r.key === 'adCreative')
+
+/** Per unit — same as Digital Marketing custom (DM_CUSTOM_KEYS) */
+export const BC_CREATIVE = {
+  id: 'creative',
+  label: dmCreative.label,
+  withContent: dmCreative.withContent,
+  withoutContent: dmCreative.withoutContent,
+}
+
+export const BC_AD_CREATIVE = {
+  id: 'adCreative',
+  label: dmAdCreative.label,
+  withContent: dmAdCreative.withContent,
+  withoutContent: dmAdCreative.withoutContent,
+}
+
 export const BC_LOGO = {
   id: 'logo',
   label: 'Logo',
@@ -44,15 +64,17 @@ export const BC_WEB_BANNER = { id: 'webBanner', label: 'Website banner', tierA: 
 
 export function initialBrandState() {
   return {
-    logo: { tier: 'none', optional: false },
+    logo: { tier: 'none', qty: 1, optionalQty: 0 },
     guideline: { tier: 'none' },
     businessCard: { tier: 'none' },
     brochure: { pages: 0, tier: 'low', contentAdd: false },
     menu: { pages: 0, tier: 'low' },
     tshirt: { tier: 'none' },
     letter: { tier: 'none' },
-    promoBanner: { tier: 'none', contentAdd: false },
-    webBanner: { tier: 'none' },
+    promoBanner: { tier: 'none', contentAdd: false, qty: 1 },
+    webBanner: { tier: 'none', qty: 1 },
+    creative: { qty: 0, withContent: true },
+    adCreative: { qty: 0, withContent: true },
   }
 }
 
@@ -69,10 +91,16 @@ export function computeBrandTotal(s) {
     breakdown.push({ label, detail, line })
   }
 
-  if (s.logo.tier === 'a') add(BC_LOGO.label, 'Standard tier', BC_LOGO.tierA)
-  if (s.logo.tier === 'b') add(BC_LOGO.label, 'Premium tier', BC_LOGO.tierB)
-  if (s.logo.optional && (s.logo.tier === 'a' || s.logo.tier === 'b')) {
-    add(BC_LOGO.label, 'Optional add-on', BC_LOGO.optionalAdd)
+  const logoQty = Math.max(1, Number(s.logo.qty) || 1)
+  if (s.logo.tier === 'a') {
+    add(BC_LOGO.label, `Standard tier × ${logoQty}`, BC_LOGO.tierA * logoQty)
+  }
+  if (s.logo.tier === 'b') {
+    add(BC_LOGO.label, `Premium tier × ${logoQty}`, BC_LOGO.tierB * logoQty)
+  }
+  const optionalLogoQty = Math.max(0, Number(s.logo.optionalQty) || 0)
+  if (optionalLogoQty > 0 && (s.logo.tier === 'a' || s.logo.tier === 'b')) {
+    add(BC_LOGO.label, `Optional add-on × ${optionalLogoQty}`, BC_LOGO.optionalAdd * optionalLogoQty)
   }
 
   if (s.guideline.tier === 'a') add(BC_GUIDELINE.label, 'Tier 1', BC_GUIDELINE.tierA)
@@ -105,27 +133,45 @@ export function computeBrandTotal(s) {
   if (s.letter.tier === 'a') add(BC_LETTER.label, 'Tier 1', BC_LETTER.tierA)
   if (s.letter.tier === 'b') add(BC_LETTER.label, 'Tier 2', BC_LETTER.tierB)
 
+  const promoQty = Math.max(1, Number(s.promoBanner.qty) || 1)
   if (s.promoBanner.tier === 'a') {
-    let line = BC_PROMO_BANNER.tierA
+    let unit = BC_PROMO_BANNER.tierA
     let detail = 'Tier 1'
     if (s.promoBanner.contentAdd) {
-      line += BC_PROMO_BANNER.contentAdd
+      unit += BC_PROMO_BANNER.contentAdd
       detail += ` + content ${BC_PROMO_BANNER.contentAdd}`
     }
-    add(BC_PROMO_BANNER.label, detail, line)
+    add(BC_PROMO_BANNER.label, `${detail} × ${promoQty}`, unit * promoQty)
   }
   if (s.promoBanner.tier === 'b') {
-    let line = BC_PROMO_BANNER.tierB
+    let unit = BC_PROMO_BANNER.tierB
     let detail = 'Tier 2'
     if (s.promoBanner.contentAdd) {
-      line += BC_PROMO_BANNER.contentAdd
+      unit += BC_PROMO_BANNER.contentAdd
       detail += ` + content ${BC_PROMO_BANNER.contentAdd}`
     }
-    add(BC_PROMO_BANNER.label, detail, line)
+    add(BC_PROMO_BANNER.label, `${detail} × ${promoQty}`, unit * promoQty)
   }
 
-  if (s.webBanner.tier === 'a') add(BC_WEB_BANNER.label, 'Tier 1', BC_WEB_BANNER.tierA)
-  if (s.webBanner.tier === 'b') add(BC_WEB_BANNER.label, 'Tier 2', BC_WEB_BANNER.tierB)
+  const webQty = Math.max(1, Number(s.webBanner.qty) || 1)
+  if (s.webBanner.tier === 'a') add(BC_WEB_BANNER.label, `Tier 1 × ${webQty}`, BC_WEB_BANNER.tierA * webQty)
+  if (s.webBanner.tier === 'b') add(BC_WEB_BANNER.label, `Tier 2 × ${webQty}`, BC_WEB_BANNER.tierB * webQty)
+
+  const cr = s.creative ?? { qty: 0, withContent: true }
+  const creativeQty = Math.max(0, Number(cr.qty) || 0)
+  if (creativeQty > 0) {
+    const unit = cr.withContent ? BC_CREATIVE.withContent : BC_CREATIVE.withoutContent
+    const mode = cr.withContent ? 'With content' : 'Without content'
+    add(BC_CREATIVE.label, `${creativeQty} × ${mode} @ ${unit}`, creativeQty * unit)
+  }
+
+  const ac = s.adCreative ?? { qty: 0, withContent: true }
+  const adCreativeQty = Math.max(0, Number(ac.qty) || 0)
+  if (adCreativeQty > 0) {
+    const unit = ac.withContent ? BC_AD_CREATIVE.withContent : BC_AD_CREATIVE.withoutContent
+    const mode = ac.withContent ? 'With content' : 'Without content'
+    add(BC_AD_CREATIVE.label, `${adCreativeQty} × ${mode} @ ${unit}`, adCreativeQty * unit)
+  }
 
   return { total, breakdown }
 }

@@ -1,3 +1,4 @@
+import { CONTACT_EMAIL } from '../data/contact.js'
 import { servicePanelProps } from '../data/serviceThemes.js'
 
 export function emptyCompany() {
@@ -114,7 +115,7 @@ export function ReviewBlock({ onBack, onConfirm, children, grandTotal, hint, ser
           Edit
         </button>
         <button type="button" className="dm-btn dm-btn--primary" onClick={onConfirm}>
-          Confirm & open email
+          Confirm & send
         </button>
       </div>
       {hint && <p className="dm-mail-hint">{hint}</p>}
@@ -122,12 +123,27 @@ export function ReviewBlock({ onBack, onConfirm, children, grandTotal, hint, ser
   )
 }
 
-export function DoneBlock({ onReset, serviceId }) {
+export function DoneBlock({ onReset, serviceId, sentVia = null, whatsapp = null }) {
   return (
     <div className="dm-panel dm-panel--done" {...servicePanelProps(serviceId)}>
       <h2 className="dm-title">Thank you</h2>
-      <p className="dm-lead">Your booking summary was prepared. If your mail app opened, send the email to complete the request.</p>
-      <button type="button" className="dm-btn dm-btn--primary" onClick={onReset}>
+      {sentVia === 'web3' ? (
+        <p className="dm-lead">
+          Your request was sent to <strong>{CONTACT_EMAIL}</strong> only — we do not send a copy to your email. We’ll follow up using the contact details you provided.
+        </p>
+      ) : (
+        <p className="dm-lead">
+          Your booking summary was prepared. If your mail app opened, send the message to <strong>{CONTACT_EMAIL}</strong> only to complete the request.
+        </p>
+      )}
+      {whatsapp?.toPixdot && (
+        <p className="dm-lead" style={{ marginTop: '0.75rem' }}>
+          <a href={whatsapp.toPixdot} className="dm-btn dm-btn--primary" target="_blank" rel="noopener noreferrer" style={{ display: 'inline-flex' }}>
+            Message Pixdot on WhatsApp
+          </a>
+        </p>
+      )}
+      <button type="button" className="dm-btn dm-btn--primary" style={{ marginTop: '1rem' }} onClick={onReset}>
         Start new booking
       </button>
     </div>

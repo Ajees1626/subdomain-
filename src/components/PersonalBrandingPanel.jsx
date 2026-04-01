@@ -1,6 +1,7 @@
 import { useMemo, useState } from 'react'
 import { PB_PLAN_A, PB_PLAN_B } from '../data/personalBranding.js'
-import { CONTACT_EMAIL } from '../data/contact.js'
+import { BOOKING_REVIEW_HINT } from '../data/contact.js'
+import { submitBookingRequest } from '../utils/submitBooking.js'
 import { servicePanelProps } from '../data/serviceThemes.js'
 import { AgreementBlock, CompanyForm, DoneBlock } from './BookingFlow.jsx'
 import { formatMoney } from '../utils/money.js'
@@ -20,6 +21,9 @@ export function PersonalBrandingPanel() {
   const [planId, setPlanId] = useState(null)
   const [company, setCompany] = useState(emptyCompany())
   const [agreed, setAgreed] = useState(false)
+  const [sending, setSending] = useState(false)
+  const [sentVia, setSentVia] = useState(null)
+  const [doneWhatsapp, setDoneWhatsapp] = useState(null)
 
   const plan = useMemo(() => {
     if (planId === 'a') return PB_PLAN_A
@@ -32,6 +36,8 @@ export function PersonalBrandingPanel() {
     setPlanId(null)
     setCompany(emptyCompany())
     setAgreed(false)
+    setSentVia(null)
+    setDoneWhatsapp(null)
   }
 
   function startPlan(id) {
@@ -39,7 +45,7 @@ export function PersonalBrandingPanel() {
     setStep('company')
   }
 
-  function mailBody() {
+  function buildMailBodyPlain() {
     const lines = [
       'Pixdot — Personal Branding booking',
       plan ? `Plan: ${plan.name}` : '',
@@ -54,13 +60,37 @@ export function PersonalBrandingPanel() {
       `Phone: ${company.phone}`,
       company.notes ? `Notes: ${company.notes}` : '',
     ].filter(Boolean)
-    return encodeURIComponent(lines.join('\n'))
+    return lines.join('\n')
   }
 
-  function onConfirmSend() {
-    const subject = encodeURIComponent(`Pixdot Personal Branding — ${company.companyName || 'Booking'}`)
-    window.location.href = `mailto:${CONTACT_EMAIL}?subject=${subject}&body=${mailBody()}`
-    setStep('done')
+  async function onConfirmSend() {
+    setSending(true)
+    try {
+      const subject = `Pixdot Personal Branding — ${company.companyName || 'Booking'}`
+      const r = await submitBookingRequest({
+        subject,
+        plainBody: buildMailBodyPlain(),
+        replyEmail: company.email,
+        replyName: company.contactName,
+        serviceName: 'Personal Branding',
+        clientPhone: company.phone,
+      })
+      const wa = r.whatsappToPixdot ? { toPixdot: r.whatsappToPixdot } : null
+      if (r.mode === 'mailto' && r.mailtoUrl) {
+        window.location.href = r.mailtoUrl
+        setSentVia('mailto')
+        setDoneWhatsapp(wa)
+      } else if (r.success) {
+        setSentVia('web3')
+        setDoneWhatsapp(wa)
+      } else {
+        window.alert(r.error || 'Could not send. Try again.')
+        return
+      }
+      setStep('done')
+    } finally {
+      setSending(false)
+    }
   }
 
   if (step === 'pick') {
@@ -160,17 +190,17 @@ export function PersonalBrandingPanel() {
           <button type="button" className="dm-btn" onClick={() => setStep('agreement')}>
             Edit
           </button>
-          <button type="button" className="dm-btn dm-btn--primary" onClick={onConfirmSend}>
-            Confirm & open email
+          <button type="button" className="dm-btn dm-btn--primary" disabled={sending} onClick={onConfirmSend}>
+            {sending ? 'Sending…' : 'Confirm & send'}
           </button>
         </div>
-        <p className="dm-mail-hint">Edit CONTACT_EMAIL in contact.js for your inbox.</p>
+        <p className="dm-mail-hint">{BOOKING_REVIEW_HINT}</p>
       </div>
     )
   }
 
   if (step === 'done') {
-    return <DoneBlock onReset={resetFlow} serviceId={SID} />
+    return <DoneBlock onReset={resetFlow} serviceId={SID} sentVia={sentVia} whatsapp={doneWhatsapp} />
   }
 
   return null

@@ -7,8 +7,10 @@ import {
   computeCustomTotal,
   initialCustomQuantities,
 } from '../data/digitalMarketing.js'
-import { CONTACT_EMAIL } from '../data/contact.js'
+import { BOOKING_REVIEW_HINT } from '../data/contact.js'
+import { submitBookingRequest } from '../utils/submitBooking.js'
 import { servicePanelProps } from '../data/serviceThemes.js'
+import { DoneBlock } from './BookingFlow.jsx'
 import { QtyStepper } from './QtyStepper.jsx'
 import { formatMoney } from '../utils/money.js'
 
@@ -31,6 +33,9 @@ export function DigitalMarketingPanel() {
   const [customQty, setCustomQty] = useState(() => initialCustomQuantities())
   const [company, setCompany] = useState(emptyCompany)
   const [agreed, setAgreed] = useState(false)
+  const [sending, setSending] = useState(false)
+  const [sentVia, setSentVia] = useState(null)
+  const [doneWhatsapp, setDoneWhatsapp] = useState(null)
 
   const customCalc = useMemo(
     () => computeCustomTotal(customQty, contentMode),
@@ -45,6 +50,8 @@ export function DigitalMarketingPanel() {
     setCustomQty(initialCustomQuantities())
     setCompany(emptyCompany())
     setAgreed(false)
+    setSentVia(null)
+    setDoneWhatsapp(null)
   }
 
   function startFixed(planId) {
@@ -93,7 +100,7 @@ export function DigitalMarketingPanel() {
     return 0
   }, [bookingKind, fixedPlan, customCalc.total])
 
-  function buildMailBody() {
+  function buildMailBodyPlain() {
     const basis =
       bookingKind === 'custom'
         ? contentMode === 'with'
@@ -122,14 +129,37 @@ export function DigitalMarketingPanel() {
       `Phone: ${company.phone}`,
       company.notes ? `Notes: ${company.notes}` : '',
     ].filter(Boolean)
-    return encodeURIComponent(lines.join('\n'))
+    return lines.join('\n')
   }
 
-  function onConfirmSend() {
-    const subject = encodeURIComponent(`Pixdot Digital Marketing — ${company.companyName || 'Booking'}`)
-    const body = buildMailBody()
-    window.location.href = `mailto:${CONTACT_EMAIL}?subject=${subject}&body=${body}`
-    setStep('done')
+  async function onConfirmSend() {
+    setSending(true)
+    try {
+      const subject = `Pixdot Digital Marketing — ${company.companyName || 'Booking'}`
+      const r = await submitBookingRequest({
+        subject,
+        plainBody: buildMailBodyPlain(),
+        replyEmail: company.email,
+        replyName: company.contactName,
+        serviceName: 'Digital Marketing',
+        clientPhone: company.phone,
+      })
+      const wa = r.whatsappToPixdot ? { toPixdot: r.whatsappToPixdot } : null
+      if (r.mode === 'mailto' && r.mailtoUrl) {
+        window.location.href = r.mailtoUrl
+        setSentVia('mailto')
+        setDoneWhatsapp(wa)
+      } else if (r.success) {
+        setSentVia('web3')
+        setDoneWhatsapp(wa)
+      } else {
+        window.alert(r.error || 'Could not send. Try again.')
+        return
+      }
+      setStep('done')
+    } finally {
+      setSending(false)
+    }
   }
 
   if (step === 'pick') {
@@ -407,25 +437,17 @@ export function DigitalMarketingPanel() {
           <button type="button" className="dm-btn" onClick={() => setStep('agreement')}>
             Edit
           </button>
-          <button type="button" className="dm-btn dm-btn--primary" onClick={onConfirmSend}>
-            Confirm & open email
+          <button type="button" className="dm-btn dm-btn--primary" disabled={sending} onClick={onConfirmSend}>
+            {sending ? 'Sending…' : 'Confirm & send'}
           </button>
         </div>
-        <p className="dm-mail-hint">Confirm opens your email app with a pre-filled message. Edit CONTACT_EMAIL in contact.js for your inbox.</p>
+        <p className="dm-mail-hint">{BOOKING_REVIEW_HINT}</p>
       </div>
     )
   }
 
   if (step === 'done') {
-    return (
-      <div className="dm-panel dm-panel--done" {...servicePanelProps(SID)}>
-        <h2 className="dm-title">Thank you</h2>
-        <p className="dm-lead">Your booking summary was prepared. If your mail app opened, send the email to complete the request.</p>
-        <button type="button" className="dm-btn dm-btn--primary" onClick={resetFlow}>
-          Start new booking
-        </button>
-      </div>
-    )
+    return <DoneBlock onReset={resetFlow} serviceId={SID} sentVia={sentVia} whatsapp={doneWhatsapp} />
   }
 
   return null

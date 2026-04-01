@@ -30,13 +30,16 @@ export const SERVICE_THEMES = {
   },
 }
 
-/** Large background word — short so it stays fully visible inside the expanded panel */
+/**
+ * Large background word behind the icon (expanded panel).
+ * Order on the landing page: Logo → Packaging → Ads → YouTube → Website → App.
+ */
 export const SERVICE_WATERMARKS = {
   'brand-creative': 'LOGO',
-  packaging: 'PACK',
+  packaging: 'PACKAGING',
   'digital-marketing': 'ADS',
   'personal-branding': 'YOU',
-  website: 'WEB',
+  website: 'WEBSITE',
   app: 'APP',
 }
 
