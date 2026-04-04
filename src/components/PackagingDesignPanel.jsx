@@ -1,9 +1,9 @@
-import { useMemo, useState } from 'react'
+import { useMemo, useState, useRef, useEffect } from 'react'
 import {
   PACKAGING_CUSTOM_KEYS,
   PACKAGING_PACKAGES,
-  computePackagingCustomTotal,
-  computePackagingWithCustom,
+  computeMultiPackagingWithCustom,
+  computePackagingPriceDual,
   initialPackagingCustomQuantities,
   initialPackState,
 } from '../data/packagingDesign.js'
@@ -26,7 +26,8 @@ const emptyCompany = () => ({
 
 export function PackagingDesignPanel() {
   const [step, setStep] = useState('pick')
-  const [selectedPkgId, setSelectedPkgId] = useState(null)
+  /** Any subset of master / mono / family — order fixed for totals & email */
+  const [selectedPkgIds, setSelectedPkgIds] = useState(() => [])
   const [packState, setPackState] = useState(() => initialPackState())
   const [customQty, setCustomQty] = useState(() => initialPackagingCustomQuantities())
   const [company, setCompany] = useState(emptyCompany())
@@ -35,28 +36,23 @@ export function PackagingDesignPanel() {
   const [sentVia, setSentVia] = useState(null)
   const [doneWhatsapp, setDoneWhatsapp] = useState(null)
 
-  const selectedPkg = useMemo(
-    () => PACKAGING_PACKAGES.find((p) => p.id === selectedPkgId) ?? null,
-    [selectedPkgId],
+  const combined = useMemo(
+    () => computeMultiPackagingWithCustom(packState, selectedPkgIds, customQty),
+    [packState, selectedPkgIds, customQty],
   )
 
-  const selection = selectedPkgId ? packState[selectedPkgId] : null
-
-  const combined = useMemo(() => {
-    if (!selectedPkg || !selection) {
-      const custom = computePackagingCustomTotal(customQty)
-      return {
-        packaging: { total: 0, base: 0, extraLine: 0, extraCount: 0, pkg: null },
-        custom,
-        total: custom.total,
-      }
-    }
-    return computePackagingWithCustom(selectedPkg, selection.tier, selection.extraOptions, customQty)
-  }, [selectedPkg, selection, customQty])
+  function togglePackageIncluded(id) {
+    setSelectedPkgIds((prev) => {
+      const set = new Set(prev)
+      if (set.has(id)) set.delete(id)
+      else set.add(id)
+      return PACKAGING_PACKAGES.map((p) => p.id).filter((pid) => set.has(pid))
+    })
+  }
 
   function resetFlow() {
     setStep('pick')
-    setSelectedPkgId(null)
+    setSelectedPkgIds([])
     setPackState(initialPackState())
     setCustomQty(initialPackagingCustomQuantities())
     setCompany(emptyCompany())
@@ -73,25 +69,54 @@ export function PackagingDesignPanel() {
   }
 
   function continueToCompany() {
-    if (!selectedPkgId || !selectedPkg) {
-      window.alert('Select a package: Master, Mono, or Family design.')
+    if (selectedPkgIds.length === 0) {
+      window.alert('Choose at least one package: Master, Mono, and/or Family — you can select any combination.')
       return
+    }
+    for (const id of selectedPkgIds) {
+      const pkg = PACKAGING_PACKAGES.find((p) => p.id === id)
+      const d = computePackagingPriceDual(pkg, packState[id])
+      if (!pkg || d.total <= 0) {
+        window.alert(
+          'For each included package, tick Include on at least one tier (A or B), then set design counts and/or extra rounds.',
+        )
+        return
+      }
     }
     setStep('company')
   }
 
   function buildMailBodyPlain() {
-    const pkg = selectedPkg
-    const ps = selectedPkgId ? packState[selectedPkgId] : null
     const lines = [
       'Pixdot — Packaging Design booking',
-      pkg && ps ? `Package: ${pkg.name}` : '',
-      pkg && ps
-        ? `Tier: ${ps.tier === 'a' ? 'A' : 'B'} (${formatMoney(ps.tier === 'a' ? pkg.tierA : pkg.tierB)} base)`
+      combined.packagingLines.length
+        ? `Packages selected (${combined.packagingLines.length}):`
         : '',
-      pkg && ps && ps.extraOptions > 0
-        ? `Extra options (beyond 3 included): ${ps.extraOptions} × ${formatMoney(pkg.extraOptionPrice)}`
-        : '',
+      ...combined.packagingLines.flatMap((row) => {
+        const bits = [`  · ${row.name}:`]
+        if (row.countA > 0) {
+          bits.push(
+            `    Tier A designs: ${row.countA} × ${formatMoney(row.unitA)} (bundle) = ${formatMoney(row.lineA)}`,
+          )
+        }
+        if (row.countB > 0) {
+          bits.push(
+            `    Tier B designs: ${row.countB} × ${formatMoney(row.unitB)} (bundle) = ${formatMoney(row.lineB)}`,
+          )
+        }
+        if (row.extraOptionsA > 0) {
+          bits.push(
+            `    Tier A extra rounds: ${row.extraOptionsA} × ${formatMoney(row.extraOptionPrice)} = ${formatMoney(row.extraLineA)}`,
+          )
+        }
+        if (row.extraOptionsB > 0) {
+          bits.push(
+            `    Tier B extra rounds: ${row.extraOptionsB} × ${formatMoney(row.extraOptionPrice)} = ${formatMoney(row.extraLineB)}`,
+          )
+        }
+        bits.push(`    Subtotal: ${formatMoney(row.total)}`)
+        return bits
+      }),
       combined.custom.total > 0 ? `Packaging add-ons subtotal: ${formatMoney(combined.custom.total)}` : '',
       ...combined.custom.breakdown.map(
         (b) => `  · ${b.label}: ${b.qty} × ${formatMoney(b.unit)} = ${formatMoney(b.line)}`,
@@ -139,27 +164,39 @@ export function PackagingDesignPanel() {
 
   if (step === 'pick') {
     return (
-      <div className="dm-panel dm-panel--bc-pick" {...servicePanelProps(SID)}>
+      <div className="dm-panel dm-panel--bc-pick dm-panel--pkg-pick" {...servicePanelProps(SID)}>
         <header className="dm-head">
           <h2 className="dm-title">Packaging Design</h2>
           <p className="dm-lead">
-            Each package includes 3 design options. Choose tier (A/B) and extra options on each card. Add optional packaging-only add-ons below. Then continue to
-            company details.
+            Include a package, then tick Include on each tier you want. Design count × that tier’s bundle price (e.g. 2 × ₹6,999). Extra rounds are per tier. Add-ons are in
+            the table below.
           </p>
         </header>
 
         <div className="bc-pick-main">
-          <div className="dm-plan-row">
+          <div className="pkg-stack">
             {PACKAGING_PACKAGES.map((p) => (
               <PackagingCard
                 key={p.id}
                 pkg={p}
-                tier={packState[p.id].tier}
-                extraOptions={packState[p.id].extraOptions}
-                selected={selectedPkgId === p.id}
-                onSelect={() => setSelectedPkgId(p.id)}
-                onTierChange={(tier) => updatePack(p.id, { tier })}
-                onExtraChange={(extraOptions) => updatePack(p.id, { extraOptions })}
+                countA={packState[p.id].countA}
+                countB={packState[p.id].countB}
+                extraOptionsA={packState[p.id].extraOptionsA ?? 0}
+                extraOptionsB={packState[p.id].extraOptionsB ?? 0}
+                includeA={packState[p.id].includeA ?? false}
+                includeB={packState[p.id].includeB ?? false}
+                included={selectedPkgIds.includes(p.id)}
+                onToggleIncluded={() => togglePackageIncluded(p.id)}
+                onIncludeAChange={(includeA) =>
+                  updatePack(p.id, includeA ? { includeA: true } : { includeA: false, countA: 0, extraOptionsA: 0 })
+                }
+                onIncludeBChange={(includeB) =>
+                  updatePack(p.id, includeB ? { includeB: true } : { includeB: false, countB: 0, extraOptionsB: 0 })
+                }
+                onCountAChange={(countA) => updatePack(p.id, { countA })}
+                onCountBChange={(countB) => updatePack(p.id, { countB })}
+                onExtraAChange={(extraOptionsA) => updatePack(p.id, { extraOptionsA })}
+                onExtraBChange={(extraOptionsB) => updatePack(p.id, { extraOptionsB })}
               />
             ))}
           </div>
@@ -168,7 +205,9 @@ export function PackagingDesignPanel() {
             <h3 id="pkg-custom-heading" className="dm-custom-title">
               Customised packaging add-ons
             </h3>
-            <p className="dm-custom-hint">Optional extras for mockups, dielines, samples, and rush — all packaging-related. Quantities add to your selected package.</p>
+            <p className="dm-custom-hint">
+              Optional extras for mockups, dielines, samples, and rush — all packaging-related. Quantities add on top of your selected package(s).
+            </p>
 
             <div className="dm-table-wrap">
               <table className="dm-table">
@@ -226,7 +265,7 @@ export function PackagingDesignPanel() {
     )
   }
 
-  if (step === 'company' && selectedPkg && selectedPkgId) {
+  if (step === 'company' && selectedPkgIds.length > 0) {
     return (
       <CompanyForm
         company={company}
@@ -255,10 +294,8 @@ export function PackagingDesignPanel() {
     )
   }
 
-  if (step === 'review' && selectedPkg && selectedPkgId && selection) {
-    const ps = selection
-    const pkg = selectedPkg
-    const packPart = computePackagingWithCustom(pkg, ps.tier, ps.extraOptions, customQty)
+  if (step === 'review' && selectedPkgIds.length > 0) {
+    const multi = computeMultiPackagingWithCustom(packState, selectedPkgIds, customQty)
     return (
       <div className="dm-panel dm-panel--form" {...servicePanelProps(SID)}>
         <button type="button" className="dm-back" onClick={() => setStep('agreement')}>
@@ -267,23 +304,45 @@ export function PackagingDesignPanel() {
         <h2 className="dm-title">Review</h2>
         <div className="dm-review-card">
           <h3 className="dm-review-h">Packaging</h3>
-          <p className="dm-review-strong">{pkg.name}</p>
-          <p className="dm-review-desc">
-            Tier {ps.tier === 'a' ? 'A' : 'B'} · Base {formatMoney(ps.tier === 'a' ? pkg.tierA : pkg.tierB)}
-            {ps.extraOptions > 0 && (
-              <>
-                <br />
-                Extra options: {ps.extraOptions} × {formatMoney(pkg.extraOptionPrice)} = {formatMoney(packPart.packaging.extraLine)}
-              </>
-            )}
-          </p>
-          {packPart.custom.total > 0 && (
+          <ul className="dm-review-list" style={{ margin: '0.35rem 0 0.65rem', paddingLeft: '1.1rem' }}>
+            {multi.packagingLines.map((row) => (
+              <li key={row.id}>
+                <strong>{row.name}</strong>
+                <ul style={{ margin: '0.25rem 0 0', paddingLeft: '1.1rem', fontWeight: 500 }}>
+                  {row.countA > 0 && (
+                    <li>
+                      Tier A designs: {row.countA} × {formatMoney(row.unitA)} (bundle) = {formatMoney(row.lineA)}
+                    </li>
+                  )}
+                  {row.countB > 0 && (
+                    <li>
+                      Tier B designs: {row.countB} × {formatMoney(row.unitB)} (bundle) = {formatMoney(row.lineB)}
+                    </li>
+                  )}
+                  {row.extraOptionsA > 0 && (
+                    <li>
+                      Tier A extra rounds: {row.extraOptionsA} × {formatMoney(row.extraOptionPrice)} ={' '}
+                      {formatMoney(row.extraLineA)}
+                    </li>
+                  )}
+                  {row.extraOptionsB > 0 && (
+                    <li>
+                      Tier B extra rounds: {row.extraOptionsB} × {formatMoney(row.extraOptionPrice)} ={' '}
+                      {formatMoney(row.extraLineB)}
+                    </li>
+                  )}
+                </ul>
+                <span className="dm-review-desc">Subtotal {formatMoney(row.total)}</span>
+              </li>
+            ))}
+          </ul>
+          {multi.custom.total > 0 && (
             <>
               <p className="dm-review-h" style={{ marginTop: '0.75rem' }}>
                 Customised packaging add-ons
               </p>
               <ul className="dm-review-list">
-                {packPart.custom.breakdown.map((b) => (
+                {multi.custom.breakdown.map((b) => (
                   <li key={b.label}>
                     {b.label}: {b.qty} × {formatMoney(b.unit)} = {formatMoney(b.line)}
                   </li>
@@ -291,7 +350,7 @@ export function PackagingDesignPanel() {
               </ul>
             </>
           )}
-          <p className="dm-review-total">Total {formatMoney(packPart.total)}</p>
+          <p className="dm-review-total">Total {formatMoney(multi.total)}</p>
         </div>
         <div className="dm-review-card">
           <h3 className="dm-review-h">Company</h3>
@@ -324,43 +383,143 @@ export function PackagingDesignPanel() {
 
 function PackagingCard({
   pkg,
-  tier,
-  extraOptions,
-  selected,
-  onSelect,
-  onTierChange,
-  onExtraChange,
+  countA,
+  countB,
+  extraOptionsA,
+  extraOptionsB,
+  includeA,
+  includeB,
+  included,
+  onToggleIncluded,
+  onIncludeAChange,
+  onIncludeBChange,
+  onCountAChange,
+  onCountBChange,
+  onExtraAChange,
+  onExtraBChange,
 }) {
-  return (
-    <div
-      className={`dm-card dm-card--plan ${selected ? 'dm-card--selected' : ''}`}
-      style={{ cursor: 'default' }}
-    >
-      <span className="dm-card-name">{pkg.name}</span>
-      <p className="dm-card-desc" style={{ margin: '0.5rem 0' }}>
-        Tier A {formatMoney(pkg.tierA)} · Tier B {formatMoney(pkg.tierB)}
-      </p>
-      <p className="dm-mini-list" style={{ listStyle: 'none', padding: 0, margin: '0 0 0.65rem', fontSize: '0.8rem' }}>
-        3 options included · Extra {formatMoney(pkg.extraOptionPrice)} / option
-      </p>
+  const [tierFocus, setTierFocus] = useState(null)
+  const colARef = useRef(null)
+  const colBRef = useRef(null)
 
-      <div className="dm-toggle" role="group" aria-label={`${pkg.name} tier`} style={{ width: '100%', marginBottom: '0.65rem' }}>
-        <button type="button" className={tier === 'a' ? 'is-on' : ''} onClick={() => onTierChange('a')}>
-          Tier A {formatMoney(pkg.tierA)}
-        </button>
-        <button type="button" className={tier === 'b' ? 'is-on' : ''} onClick={() => onTierChange('b')}>
-          Tier B {formatMoney(pkg.tierB)}
-        </button>
+  useEffect(() => {
+    if (!tierFocus) return
+    const t = window.setTimeout(() => setTierFocus(null), 2200)
+    return () => window.clearTimeout(t)
+  }, [tierFocus])
+
+  function focusCount(which) {
+    setTierFocus(which)
+    const el = which === 'a' ? colARef.current : colBRef.current
+    el?.querySelector?.('input, button')?.focus?.()
+    el?.scrollIntoView?.({ behavior: 'smooth', block: 'nearest' })
+  }
+
+  const tiersLocked = !included
+  const colADisabled = tiersLocked || !includeA
+  const colBDisabled = tiersLocked || !includeB
+
+  return (
+    <article className={`pkg-block ${included ? 'pkg-block--included' : ''}`}>
+      <div className="pkg-block__row pkg-block__row--head">
+        <label className="pkg-block__include">
+          <input type="checkbox" checked={included} onChange={onToggleIncluded} />
+          <span>Include</span>
+        </label>
+        <div className="pkg-block__title-wrap">
+          <h3 className="pkg-block__title">{pkg.name}</h3>
+          <p className="pkg-block__blurb">{pkg.blurb}</p>
+        </div>
       </div>
 
-      <label className="dm-field" style={{ marginBottom: '0.75rem', width: '100%' }}>
-        <span>Extra options (beyond 3 included)</span>
-        <QtyStepper value={extraOptions} onChange={onExtraChange} min={0} />
-      </label>
-
-      <button type="button" className="dm-btn dm-btn--primary" style={{ width: '100%', marginTop: 'auto' }} onClick={onSelect}>
-        {selected ? 'Selected package' : 'Select this package'}
-      </button>
-    </div>
+      <div
+        className={`pkg-block__row pkg-block__row--tier-cols${tiersLocked ? ' pkg-block__row--tier-cols-locked' : ''}`}
+        role="group"
+        aria-label={`${pkg.name} Tier A and Tier B`}
+      >
+        <div
+          ref={colARef}
+          className={`pkg-tier-column ${tierFocus === 'a' ? 'pkg-tier-column--focus' : ''} ${colADisabled ? 'pkg-tier-column--muted' : ''}`}
+          onClick={() => !colADisabled && focusCount('a')}
+        >
+          <div className="pkg-tier-column__top">
+            <div className="pkg-tier-column__price" onClick={() => !colADisabled && focusCount('a')}>
+              <span className="pkg-tier-tile__label">Tier A bundle</span>
+              <span className="pkg-tier-column__amt">{formatMoney(pkg.tierA)}</span>
+            </div>
+            <label className="pkg-tier-include" onClick={(e) => e.stopPropagation()}>
+              <input
+                type="checkbox"
+                checked={includeA}
+                disabled={tiersLocked}
+                onChange={(e) => onIncludeAChange(e.target.checked)}
+              />
+              <span>Include</span>
+            </label>
+          </div>
+          <div className="pkg-tier-column__controls" onClick={(e) => e.stopPropagation()}>
+            <span className="pkg-count-cell__label">Design count</span>
+            <QtyStepper
+              className="qty-stepper--pkg"
+              value={countA}
+              onChange={onCountAChange}
+              min={0}
+              max={99}
+              disabled={colADisabled}
+            />
+            <span className="pkg-count-cell__label">Extra design rounds · {formatMoney(pkg.extraOptionPrice)} each</span>
+            <QtyStepper
+              className="qty-stepper--pkg"
+              value={extraOptionsA}
+              onChange={onExtraAChange}
+              min={0}
+              max={99}
+              disabled={colADisabled}
+            />
+          </div>
+        </div>
+        <div
+          ref={colBRef}
+          className={`pkg-tier-column ${tierFocus === 'b' ? 'pkg-tier-column--focus' : ''} ${colBDisabled ? 'pkg-tier-column--muted' : ''}`}
+          onClick={() => !colBDisabled && focusCount('b')}
+        >
+          <div className="pkg-tier-column__top">
+            <div className="pkg-tier-column__price" onClick={() => !colBDisabled && focusCount('b')}>
+              <span className="pkg-tier-tile__label">Tier B bundle</span>
+              <span className="pkg-tier-column__amt">{formatMoney(pkg.tierB)}</span>
+            </div>
+            <label className="pkg-tier-include" onClick={(e) => e.stopPropagation()}>
+              <input
+                type="checkbox"
+                checked={includeB}
+                disabled={tiersLocked}
+                onChange={(e) => onIncludeBChange(e.target.checked)}
+              />
+              <span>Include</span>
+            </label>
+          </div>
+          <div className="pkg-tier-column__controls" onClick={(e) => e.stopPropagation()}>
+            <span className="pkg-count-cell__label">Design count</span>
+            <QtyStepper
+              className="qty-stepper--pkg"
+              value={countB}
+              onChange={onCountBChange}
+              min={0}
+              max={99}
+              disabled={colBDisabled}
+            />
+            <span className="pkg-count-cell__label">Extra design rounds · {formatMoney(pkg.extraOptionPrice)} each</span>
+            <QtyStepper
+              className="qty-stepper--pkg"
+              value={extraOptionsB}
+              onChange={onExtraBChange}
+              min={0}
+              max={99}
+              disabled={colBDisabled}
+            />
+          </div>
+        </div>
+      </div>
+    </article>
   )
 }
