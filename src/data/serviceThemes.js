@@ -43,19 +43,21 @@ export const SERVICE_WATERMARKS = {
   app: 'APP',
 }
 
-/** File names in `public/images/` — spaces encoded for URLs */
-const img = (file) => `/images/${encodeURIComponent(file)}`
-
 /**
- * Collapsed accordion — photos from `public/images/`.
+ * Collapsed accordion — hero photos (Cloudinary).
  */
 export const SERVICE_COLLAPSED_IMAGES = {
-  'brand-creative': img('brand and creative_result.webp'),
-  packaging: img('packaging design_result.webp'),
-  'digital-marketing': img('digital markeing_result.webp'),
-  'personal-branding': img('personal braning_result.webp'),
-  website: img('website development_result.webp'),
-  app: img('app development_result.webp'),
+  'brand-creative':
+    'https://res.cloudinary.com/dxiwvcfs5/image/upload/v1775292062/brand_and_creative_result_g6pwwz.webp',
+  packaging:
+    'https://res.cloudinary.com/dxiwvcfs5/image/upload/v1775292063/packaging_design_result_lnnx0d.webp',
+  'digital-marketing':
+    'https://res.cloudinary.com/dxiwvcfs5/image/upload/v1775292062/digital_markeing_result_rlrdqi.webp',
+  'personal-branding':
+    'https://res.cloudinary.com/dxiwvcfs5/image/upload/v1775292062/personal_braning_result_t4az7v.webp',
+  website:
+    'https://res.cloudinary.com/dxiwvcfs5/image/upload/v1775292062/website_development_result_wwqv41.webp',
+  app: 'https://res.cloudinary.com/dxiwvcfs5/image/upload/v1775292061/app_development_result_rsvczq.webp',
 }
 
 /** Spread onto `dm-panel` roots so inner cards pick up themed gradients via CSS */

@@ -1,14 +1,20 @@
 import { AnimatePresence, motion } from 'framer-motion'
 import { useCallback, useEffect, useMemo, useState } from 'react'
 import { AppDevelopmentPanel } from './components/AppDevelopmentPanel.jsx'
+import { AuthPage } from './components/AuthPage.jsx'
 import { BrandCreativePanel } from './components/BrandCreativePanel.jsx'
 import { DigitalMarketingPanel } from './components/DigitalMarketingPanel.jsx'
 import { PackagingDesignPanel } from './components/PackagingDesignPanel.jsx'
 import { PersonalBrandingPanel } from './components/PersonalBrandingPanel.jsx'
+import { ClientOnboardingPage } from './components/ClientOnboardingPage.jsx'
+import { ClientPortalPage } from './components/ClientPortalPage.jsx'
+import { EmployeePage } from './components/EmployeePage.jsx'
+import { ClientWorkspacePage } from './components/ClientWorkspacePage.jsx'
 import { ServicesLanding } from './components/ServicesLanding.jsx'
 import { WebsiteDevelopmentPanel } from './components/WebsiteDevelopmentPanel.jsx'
 import { SERVICES, getDetailPlaceholder } from './data/services.js'
 import { servicePanelProps } from './data/serviceThemes.js'
+import { fetchMe, getStoredToken, setStoredToken } from './utils/authApi.js'
 
 const PANELS = {
   'brand-creative': BrandCreativePanel,
@@ -25,10 +31,50 @@ const slideEase = [0.22, 1, 0.36, 1]
 const slideDur = 0.34
 
 export default function App() {
+  const [authReady, setAuthReady] = useState(false)
+  const [user, setUser] = useState(null)
   const [showLanding, setShowLanding] = useState(true)
   const [serviceId, setServiceId] = useState(SERVICES[0].id)
   const [optionId, setOptionId] = useState(SERVICES[0].options[0].id)
   const [navOpen, setNavOpen] = useState(false)
+  const [clientWorkspaceId, setClientWorkspaceId] = useState(null)
+  /** Client-only: browse full Pixdot services (landing + shell) without admin client grid. */
+  const [clientBrowseServices, setClientBrowseServices] = useState(false)
+
+  useEffect(() => {
+    let cancelled = false
+    ;(async () => {
+      if (!getStoredToken()) {
+        setAuthReady(true)
+        return
+      }
+      try {
+        const data = await fetchMe()
+        if (!cancelled) setUser(data.user)
+      } catch {
+        setStoredToken(null)
+      } finally {
+        if (!cancelled) setAuthReady(true)
+      }
+    })()
+    return () => {
+      cancelled = true
+    }
+  }, [])
+
+  function logout() {
+    setStoredToken(null)
+    setUser(null)
+    setShowLanding(true)
+    setClientWorkspaceId(null)
+    setClientBrowseServices(false)
+  }
+
+  function openClientServicesBrowse() {
+    setClientBrowseServices(true)
+    setShowLanding(true)
+    setClientWorkspaceId(null)
+  }
 
   const service = useMemo(() => SERVICES.find((s) => s.id === serviceId) ?? SERVICES[0], [serviceId])
 
@@ -65,11 +111,13 @@ export default function App() {
   }
 
   function onLandingPickService(id) {
+    setClientWorkspaceId(null)
     onPickService(id)
     setShowLanding(false)
   }
 
   function goToAllServices() {
+    setClientWorkspaceId(null)
     setShowLanding(true)
     closeNav()
   }
@@ -82,10 +130,87 @@ export default function App() {
   const detail = getDetailPlaceholder(service, option)
   const Panel = PANELS[serviceId]
 
+  if (!authReady) {
+    return (
+      <div className="auth-boot">
+        <p className="auth-boot__text">Loading…</p>
+      </div>
+    )
+  }
+
+  if (!user) {
+    return <AuthPage onAuthed={setUser} />
+  }
+
+  if (user.role === 'employee') {
+    return (
+      <div className="app-root app-root--employee">
+        <EmployeePage user={user} onLogout={logout} />
+      </div>
+    )
+  }
+
+  /** Match backend resolveRole: not admin/employee, but client role or linked workspace. */
+  const isClient =
+    user.role !== 'admin' &&
+    user.role !== 'employee' &&
+    (user.role === 'client' || Boolean(user.clientId))
+  const clientHasWorkspace = Boolean(user.clientId)
+
+  if (isClient && !clientBrowseServices) {
+    if (!clientHasWorkspace) {
+      return (
+        <div className="app-root app-root--client-portal">
+          <ClientOnboardingPage user={user} onLogout={logout} onExploreServices={openClientServicesBrowse} />
+        </div>
+      )
+    }
+    return (
+      <div className="app-root app-root--client-portal">
+        <ClientPortalPage user={user} onLogout={logout} onMoreServices={openClientServicesBrowse} />
+      </div>
+    )
+  }
+
   return (
-    <div className="app-root">
+    <div
+      className={`app-root${isClient && clientBrowseServices ? ' app-root--client-browse' : ''}`}
+    >
+      {isClient && clientBrowseServices ? (
+        <div className="client-browse-strip">
+          <button
+            type="button"
+            className="px-btn px-btn--outline px-btn--sm"
+            onClick={() => {
+              setClientBrowseServices(false)
+              setShowLanding(true)
+              setClientWorkspaceId(null)
+            }}
+          >
+            ← My dashboard
+          </button>
+          <button type="button" className="px-btn px-btn--outline px-btn--sm" onClick={logout}>
+            Log out
+          </button>
+        </div>
+      ) : null}
       <AnimatePresence mode="sync">
-        {showLanding ? (
+        {clientWorkspaceId ? (
+          <motion.div
+            key="client-workspace"
+            className="app-stage__layer app-stage__layer--client-workspace"
+            initial={{ x: '28%', opacity: 0 }}
+            animate={{ x: 0, opacity: 1 }}
+            exit={{ x: '28%', opacity: 0 }}
+            transition={{ duration: slideDur, ease: slideEase }}
+          >
+            <ClientWorkspacePage
+              initialClientId={clientWorkspaceId}
+              onBack={() => setClientWorkspaceId(null)}
+              onLogout={logout}
+            />
+          </motion.div>
+        ) : showLanding ? (
           <motion.div
             key="landing"
             className="app-stage__layer app-stage__layer--landing"
@@ -94,7 +219,12 @@ export default function App() {
             exit={{ x: '-28%', opacity: 0 }}
             transition={{ duration: slideDur, ease: slideEase }}
           >
-            <ServicesLanding onSelectService={onLandingPickService} />
+            <ServicesLanding
+              onSelectService={onLandingPickService}
+              onOpenClientWorkspace={(id) => setClientWorkspaceId(id)}
+              onLogout={logout}
+              hideAdminWorkspace={isClient}
+            />
           </motion.div>
         ) : (
           <motion.div
@@ -121,13 +251,20 @@ export default function App() {
             <span />
           </span>
         </button>
-        <button type="button" className="mobile-back-services" onClick={goToAllServices}>
+        <button
+          type="button"
+          className="mobile-back-services px-btn px-btn--outline px-btn--sm"
+          onClick={goToAllServices}
+        >
           All services
         </button>
         <div className="mobile-topbar-text">
           <span className="mobile-topbar-brand">Pixdot</span>
           <span className="mobile-topbar-service">{service.name}</span>
         </div>
+        <button type="button" className="mobile-logout px-btn px-btn--outline px-btn--sm" onClick={logout}>
+          Log out
+        </button>
       </header>
 
       <button
@@ -142,6 +279,16 @@ export default function App() {
         <div className="sidebar-brand">
           <p className="sidebar-kicker">Pixdot</p>
           <h1 className="sidebar-title">Services</h1>
+          <p className="sidebar-user" title={user.email}>
+            {user.username}
+          </p>
+          <button
+            type="button"
+            className="sidebar-logout px-btn px-btn--outline px-btn--block px-btn--sm"
+            onClick={logout}
+          >
+            Log out
+          </button>
         </div>
 
         <nav className="sidebar-block">
@@ -161,6 +308,16 @@ export default function App() {
             ))}
           </ul>
         </nav>
+
+        <div className="sidebar-mid-logout">
+          <button
+            type="button"
+            className="sidebar-logout px-btn px-btn--outline px-btn--block px-btn--sm"
+            onClick={logout}
+          >
+            Log out
+          </button>
+        </div>
 
         <nav className="sidebar-block sidebar-block--options">
           <p className="sidebar-label">Options</p>
@@ -184,7 +341,11 @@ export default function App() {
         {Panel ? (
           <>
             <div className="detail-all-services-wrap">
-              <button type="button" className="detail-all-services" onClick={goToAllServices}>
+              <button
+                type="button"
+                className="detail-all-services px-btn px-btn--outline px-btn--sm"
+                onClick={goToAllServices}
+              >
                 ← All services
               </button>
             </div>
